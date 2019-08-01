@@ -5,17 +5,23 @@ from vcsa import TTY_DTYPE
 
 # mapping 3-bit colors (from VGA mode text) to
 # e-paper display colors
-COLOR_MAP = [0xFF]  # we want black to map to real white
+FG_COLOR_MAP = [0xFF]  # we want black to map to real white
 for x in range(1, 8):
     # invert colors (since we want black-on-white) and convert to grayscale
-    COLOR_MAP.append((0x70^(x<<4),))
+    FG_COLOR_MAP.append((0x70^(x<<4),))
+
+# make all the background shades lighter, for contrast
+BG_COLOR_MAP = [0xFF]
+for x in range(1, 7):
+    BG_COLOR_MAP.append((0xB0^(x<<3)&0xF0,))
+BG_COLOR_MAP.append(0x00)  # white should map to real black
 
 class Terminal:
     '''
     A class that renders an image of the given terminal data.
     '''
 
-    def __init__(self, display_dims, font=None, bold_font=None, line_spacing=1):
+    def __init__(self, display_dims, frame_buf=None, font=None, bold_font=None, line_spacing=1):
 
         self.cursor_pos = None
 
@@ -33,11 +39,14 @@ class Terminal:
         # use 8 bits per pixel for display that can handle grayscale
         # may want to change this later and use bitmap font
         # 0xFF = white
-        self.display = Image.new('L', display_dims, 0xFF)
+        if frame_buf is None:
+            self.display = Image.new('L', display_dims, 0xFF)
+        else:
+            self.display = frame_buf
 
         self.data = None
 
-    def update(self, cursor_pos, data):
+    def update(self, cursor_pos, data, callback=None):
         '''
         Update the image of our terminal.
 
@@ -72,14 +81,22 @@ class Terminal:
         if self.cursor_pos is not None:
             cursor_x = self.cursor_pos[0]*self.char_dims[0]
             cursor_y = (self.cursor_pos[1] + 1)*self.char_dims[1]  # the +1 is so the cursor is at the bottom of the line
-            bg_color = COLOR_MAP[(data[self.cursor_pos[1], self.cursor_pos[0]]['attr'] & 0b01110000) >> 4]
+            bg_color = BG_COLOR_MAP[(data[self.cursor_pos[1], self.cursor_pos[0]]['attr'] & 0b01110000) >> 4]
             draw.line((cursor_x, cursor_y, cursor_x+self.char_dims[0], cursor_y), fill=bg_color)
+            if callback is not None:
+                callback()
 
         # iterate through the places where the data arrays differ, changing the character there
         # TODO: allow to call display update after each one, so we only change the spots on the
         # screen where characters have changed!
         diffs = np.nonzero(data != self.data)
+        prev_y = None
         for y,x in zip(*diffs):
+            if prev_y is not None and y != prev_y and callback is not None:
+                # call callback once per row
+                callback()
+                prev_y = y
+
             pos = (x*self.char_dims[0], y*self.char_dims[1])
 
             # TODO: cache the rendered characters?
@@ -91,31 +108,36 @@ class Terminal:
             # or if background color has changed
             if (old_attr ^ new_attr) & 0b01110000 or chr(self.data[y,x]['char']) != ' ':
                 box = pos[0], pos[1], pos[0]+self.char_dims[0], pos[1]+self.char_dims[1]
-                bg_color = COLOR_MAP[(new_attr&0b01110000) >> 4]
+                bg_color = BG_COLOR_MAP[(new_attr&0b01110000) >> 4]
                 draw.rectangle(box, fill=bg_color)
 
             # whether to use "high-intensity"
             font = self.bold_font if new_attr & 0x08 else self.font
 
             # foreground color
-            color = COLOR_MAP[new_attr & 0x07]
+            color = FG_COLOR_MAP[new_attr & 0x07]
 
             # we are basically ignoring the encoding, by hoping it's ASCII (calling chr())
             # we expect to usually be UTF-8, which is ASCII most of the time
             # I'm not sure how /dev/vcsa handles encoding anyway
             draw.text(pos, chr(data[y,x]['char']), font=font, fill=color)
 
+        if callback is not None:
+            callback()
+
         # place cursor
         cursor_x = cursor_pos[0]*self.char_dims[0]
         cursor_y = (cursor_pos[1] + 1)*self.char_dims[1]  # the +1 is so the cursor is at the bottom of the line
-        bg_color = COLOR_MAP[(data[cursor_pos[1], cursor_pos[0]]['attr'] & 0b01110000) >> 4]
-        cursor_color = 0x00 if bg_color == 0xFF else 0xFF # dark background should have a white cursor
+        bg_color = BG_COLOR_MAP[(data[cursor_pos[1], cursor_pos[0]]['attr'] & 0b01110000) >> 4]
+        cursor_color = 0xFF if bg_color == 0x00 else 0x00 # dark background should have a white cursor
         draw.line((cursor_x, cursor_y, cursor_x+self.char_dims[0], cursor_y), fill=cursor_color)
+        if callback is not None:
+            callback()
 
         self.cursor_pos = cursor_pos
         self.data = data
 
-        return diffs[0].size
+        return diffs[0].size + 1 # +1 for cursor movement
 
     def get_char_dims(self, line_spacing):
         '''

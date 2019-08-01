@@ -8,7 +8,7 @@
 
 import cProfile, io, pstats
 
-from time import sleep
+from time import sleep, perf_counter
 from IT8951 import EPD, constants
 
 from render import Terminal
@@ -22,28 +22,43 @@ def main():
     print('Initializing...')
     epd.clear()
 
-    term = Terminal((epd.width, epd.height))
+    term = Terminal((epd.width, epd.height), frame_buf=epd.frame_buf)
 
     auto_resize_tty(TTYN, term.char_dims, (epd.width, epd.height))
 
     print('Running...')
 
+    def update_callback():
+        '''
+        This function gets called whenever a character gets updated
+        by term, in order to get quick updates on the screen
+        '''
+        epd.write_partial(constants.DisplayModes.DU)
+
     pr = cProfile.Profile()
+
+    need_GL_update = False
+    need_GC_update = False
 
     try:
         while True:
 
             pr.enable()
             cursor_pos, data = read_vcsa(TTYN)
-            changed = term.update(cursor_pos, data)
+            changed = term.update(cursor_pos, data, callback=update_callback)
             if changed:
-                epd.frame_buf = term.display
-
-                # TODO: need more black pixels for DU
-                if changed < 5:
-                    epd.write_partial(constants.DisplayModes.DU)
-                else:
-                    epd.write_partial(constants.DisplayModes.GL16)
+                last_change = perf_counter()
+                need_GL_update = True
+                need_GC_update = True
+            elif need_GL_update and perf_counter() - last_change > 0.5:
+                # if it's been a second since any changes, update with grayscale
+                epd.write_partial(constants.DisplayModes.GL16)
+                need_GL_update = False
+            elif need_GC_update and perf_counter() - last_change > 10:
+                # if it's been long time, clear out the ghosting
+                # TODO: don't need to write data again for this call
+                epd.write_full(constants.DisplayModes.GC16)
+                need_GC_update = False
 
             pr.disable()
 
@@ -58,7 +73,6 @@ def main():
         ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
         ps.print_stats()
         print(s.getvalue())
-
 
 if __name__ == '__main__':
     main()
