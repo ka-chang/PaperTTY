@@ -66,6 +66,11 @@ class Terminal:
             The number of characters changed
 '''
 
+        def do_callback():
+            print('calling callback...')
+            if callback is not None:
+                callback()
+
         if self.data is None:
             # this is the data that would yield an all-white screen, so since
             # we've set our display to all white we'll use that as the starting point
@@ -77,25 +82,31 @@ class Terminal:
 
         draw = ImageDraw.Draw(self.display)
 
+        # all of the places where the character or attribute has changed
+        diffs = np.nonzero(data != self.data)
+
         # remove old cursor
         if self.cursor_pos is not None:
             cursor_x = self.cursor_pos[0]*self.char_dims[0]
             cursor_y = (self.cursor_pos[1] + 1)*self.char_dims[1]  # the +1 is so the cursor is at the bottom of the line
             bg_color = BG_COLOR_MAP[(data[self.cursor_pos[1], self.cursor_pos[0]]['attr'] & 0b01110000) >> 4]
             draw.line((cursor_x, cursor_y, cursor_x+self.char_dims[0], cursor_y), fill=bg_color)
-            if callback is not None:
-                callback()
+
+            # only call this if we won't already be updating this spot below
+            # (e.g. old cursor was on a different line than all text changes)
+            if diffs[0].size and self.cursor_pos[1] != diffs[0][0]:
+                do_callback()
 
         # iterate through the places where the data arrays differ, changing the character there
-        # TODO: allow to call display update after each one, so we only change the spots on the
-        # screen where characters have changed!
-        diffs = np.nonzero(data != self.data)
-        prev_y = None
+        prev_y = diffs[0][0] if diffs[0].size else None
         for y,x in zip(*diffs):
-            if prev_y is not None and y != prev_y and callback is not None:
-                # call callback once per row
-                callback()
-                prev_y = y
+
+            # call callback if there was a gap between the rows
+            # main idea is to avoid updating half the screen because e.g. emacs changed its minibuffer
+            # and also some text in the main buffer
+            if y > prev_y+1:
+                do_callback()
+            prev_y = y
 
             pos = (x*self.char_dims[0], y*self.char_dims[1])
 
@@ -122,8 +133,10 @@ class Terminal:
             # I'm not sure how /dev/vcsa handles encoding anyway
             draw.text(pos, chr(data[y,x]['char']), font=font, fill=color)
 
-        if callback is not None:
-            callback()
+        # if the last text that happened was not on the same row as the cursor we're about to update, then
+        # run the callback
+        if prev_y is not None and prev_y != cursor_pos[1]:
+            do_callback()
 
         # place cursor
         cursor_x = cursor_pos[0]*self.char_dims[0]
@@ -131,8 +144,8 @@ class Terminal:
         bg_color = BG_COLOR_MAP[(data[cursor_pos[1], cursor_pos[0]]['attr'] & 0b01110000) >> 4]
         cursor_color = 0xFF if bg_color == 0x00 else 0x00 # dark background should have a white cursor
         draw.line((cursor_x, cursor_y, cursor_x+self.char_dims[0], cursor_y), fill=cursor_color)
-        if callback is not None:
-            callback()
+
+        do_callback()
 
         self.cursor_pos = cursor_pos
         self.data = data
