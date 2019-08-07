@@ -8,12 +8,12 @@ from vcsa import TTY_DTYPE
 FG_COLOR_MAP = [0xFF]  # we want black to map to real white
 for x in range(1, 8):
     # invert colors (since we want black-on-white) and convert to grayscale
-    FG_COLOR_MAP.append((0x70^(x<<4),))
+    FG_COLOR_MAP.append(0x70^(x<<4))
 
 # make all the background shades lighter, for contrast
 BG_COLOR_MAP = [0xFF]
 for x in range(1, 7):
-    BG_COLOR_MAP.append((0xB0^(x<<3)&0xF0,))
+    BG_COLOR_MAP.append(0xB0^(x<<3)&0xF0)
 BG_COLOR_MAP.append(0x00)  # white should map to real black
 
 class Terminal:
@@ -27,9 +27,9 @@ class Terminal:
 
         # TODO: maybe should handle non-truetype fonts here
         if font is None:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeMono.ttf", 24)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeMono.ttf", 20)
         if bold_font is None:
-            bold_font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf", 24)
+            bold_font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf", 20)
 
         self.font = font
         self.bold_font = bold_font
@@ -46,7 +46,24 @@ class Terminal:
 
         self.data = None
 
-    def update(self, cursor_pos, data, callback=None):
+    def _draw_cursor(self, position, tty_data, draw, remove=False):
+        cursor_x = position[0]*self.char_dims[0]
+        cursor_y = (position[1]+1)*self.char_dims[1]  # the +1 is so the cursor is at the bottom of the line
+
+        attr = tty_data[position[1], position[0]]['attr']  # the text attributes at this position
+        bg_color = BG_COLOR_MAP[(attr & 0b01110000) >> 4]
+
+        if remove:
+            cursor_color = bg_color   # draw over it in the same color as the background
+        else:
+            cursor_color = 0xFF if bg_color == 0x00 else 0x00
+
+        draw.line((cursor_x, cursor_y, cursor_x+self.char_dims[0], cursor_y), fill=cursor_color)
+
+        # whether we drew any gray
+        return bg_color not in (0x00, 0xFF)
+
+    def update(self, cursor_pos, data, callback=lambda *args, **kwargs: None):
         '''
         Update the image of our terminal.
 
@@ -59,17 +76,15 @@ class Terminal:
         data : np.ndarray
             A numpy array as returned by vcsa.get_vcsa
 
+        callback : function
+            A function that will be called for intermediate updates
+
         Returns
         -------
 
         int
             The number of characters changed
 '''
-
-        def do_callback():
-            print('calling callback...')
-            if callback is not None:
-                callback()
 
         if self.data is None:
             # this is the data that would yield an all-white screen, so since
@@ -85,67 +100,67 @@ class Terminal:
         # all of the places where the character or attribute has changed
         diffs = np.nonzero(data != self.data)
 
+        # set to true when we make a change that requires a grayscale update (not b&w)
+        gray_changes = False
+
         # remove old cursor
         if self.cursor_pos is not None:
-            cursor_x = self.cursor_pos[0]*self.char_dims[0]
-            cursor_y = (self.cursor_pos[1] + 1)*self.char_dims[1]  # the +1 is so the cursor is at the bottom of the line
-            bg_color = BG_COLOR_MAP[(data[self.cursor_pos[1], self.cursor_pos[0]]['attr'] & 0b01110000) >> 4]
-            draw.line((cursor_x, cursor_y, cursor_x+self.char_dims[0], cursor_y), fill=bg_color)
-
-            # only call this if we won't already be updating this spot below
+            gray_changes = self._draw_cursor(self.cursor_pos, data, draw, remove=True) or gray_changes
+            # only call callback if we won't already be updating this spot below
             # (e.g. old cursor was on a different line than all text changes)
             if diffs[0].size and self.cursor_pos[1] != diffs[0][0]:
-                do_callback()
+                callback(gray_changes)
+                gray_changes = False
 
         # iterate through the places where the data arrays differ, changing the character there
         prev_y = diffs[0][0] if diffs[0].size else None
         for y,x in zip(*diffs):
 
             # call callback if there was a gap between the rows
-            # main idea is to avoid updating half the screen because e.g. emacs changed its minibuffer
-            # and also some text in the main buffer
-            if y > prev_y+1:
-                do_callback()
+            # main idea is to avoid updating half the screen because the text in two distant
+            # areas changed.
+            if y > prev_y + 5:
+                callback(gray_changes)
+                gray_changes = False
+
             prev_y = y
 
             pos = (x*self.char_dims[0], y*self.char_dims[1])
-
-            # TODO: cache the rendered characters?
-
             old_attr = self.data[y,x]['attr']
             new_attr = data[y,x]['attr']
 
             # need to write background color box to remove any character that is already there
             # or if background color has changed
+            bg_color = BG_COLOR_MAP[(new_attr&0b01110000) >> 4]
             if (old_attr ^ new_attr) & 0b01110000 or chr(self.data[y,x]['char']) != ' ':
                 box = pos[0], pos[1], pos[0]+self.char_dims[0], pos[1]+self.char_dims[1]
-                bg_color = BG_COLOR_MAP[(new_attr&0b01110000) >> 4]
                 draw.rectangle(box, fill=bg_color)
 
-            # whether to use "high-intensity"
+            # whether to use "high-intensity" (bold)
             font = self.bold_font if new_attr & 0x08 else self.font
 
             # foreground color
-            color = FG_COLOR_MAP[new_attr & 0x07]
+            fg_color = FG_COLOR_MAP[new_attr & 0x07]
 
             # we are basically ignoring the encoding, by hoping it's ASCII (calling chr())
             # we expect to usually be UTF-8, which is ASCII most of the time
-            # I'm not sure how /dev/vcsa handles encoding anyway
-            draw.text(pos, chr(data[y,x]['char']), font=font, fill=color)
+            # I'm not sure how /dev/vcsa handles encoding+attributes anyway
+            draw.text(pos, chr(data[y,x]['char']), font=font, fill=fg_color)
+
+            # whether we have drawn any gray
+            gray_changes = gray_changes or bg_color not in (0x00, 0xFF)
+            gray_changes = gray_changes or fg_color not in (0x00, 0xFF)
 
         # if the last text that happened was not on the same row as the cursor we're about to update, then
         # run the callback
-        if prev_y is not None and prev_y != cursor_pos[1]:
-            do_callback()
+        if prev_y != cursor_pos[1]:
+            callback(gray_changes)
+            gray_changes = False
 
         # place cursor
-        cursor_x = cursor_pos[0]*self.char_dims[0]
-        cursor_y = (cursor_pos[1] + 1)*self.char_dims[1]  # the +1 is so the cursor is at the bottom of the line
-        bg_color = BG_COLOR_MAP[(data[cursor_pos[1], cursor_pos[0]]['attr'] & 0b01110000) >> 4]
-        cursor_color = 0xFF if bg_color == 0x00 else 0x00 # dark background should have a white cursor
-        draw.line((cursor_x, cursor_y, cursor_x+self.char_dims[0], cursor_y), fill=cursor_color)
+        gray_changes = self._draw_cursor(cursor_pos, data, draw) or gray_changes
 
-        do_callback()
+        callback(gray_changes)
 
         self.cursor_pos = cursor_pos
         self.data = data

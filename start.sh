@@ -8,5 +8,5 @@
 ## sudo chown root:root start.sh; sudo chmod 700 start.sh
 ##
 
-VENV="/home/pi/.virtualenvs/papertty/bin/python3"
-${VENV} papertty.py --driver epd2in13 terminal --autofit
+VENV="/home/pi/Code/venvs/six-inch/bin/python3"
+${VENV} papertty.py
