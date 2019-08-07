@@ -23,7 +23,7 @@ def display_gradient(display):
     display.write_full(constants.DisplayModes.GC16)
 
 def display_image_8bpp(display):
-    img_path = 'sleeping_penguin.png'
+    img_path = '../pics/sleeping_penguin.png'
     print('Displaying "{}"...'.format(img_path))
 
     # clearing image to white
