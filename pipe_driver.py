@@ -111,8 +111,7 @@ class PipeDisplay:
         self.epd.packed_pixel_write(
             data,
             xy=xy,
-            dims=dims,
-            flatten=(mode==DisplayModes.DU)
+            dims=dims
         )
 
         # display sent image
