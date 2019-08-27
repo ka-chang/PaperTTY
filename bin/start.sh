@@ -9,4 +9,4 @@
 ##
 
 VENV="/home/pi/Code/venvs/six-inch/bin/python3"
-${VENV} papertty.py
+${VENV} run.py

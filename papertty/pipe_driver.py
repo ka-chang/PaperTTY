@@ -1,9 +1,9 @@
 
 import array
 import struct
-from os import mkfifo, remove, getpid, kill
+from os import mkfifo, remove, getpid, kill, umask
 from signal import signal, SIGUSR1
-from IT8951.auto import AutoDisplay
+from IT8951.display import AutoDisplay
 from IT8951 import EPD
 from IT8951.constants import DisplayModes
 
@@ -61,7 +61,10 @@ class PipeDisplay:
         self.width = self.epd.width
         self.height = self.epd.height
 
+        old_umask = umask(0)
         mkfifo(self.data_path)
+        umask(old_umask)
+
         mkfifo(self.ready_path)
         with open(self.info_path, 'w') as f:
             f.write('{},{},{}\n'.format(self.width, self.height, getpid()))
@@ -108,11 +111,10 @@ class PipeDisplay:
 
         # send image to controller
         self.epd.wait_display_ready()
-        self.epd.packed_pixel_write(
+        self.epd.load_img_area(
             data,
             xy=xy,
             dims=dims,
-            flatten=(mode==DisplayModes.DU)
         )
 
         # display sent image

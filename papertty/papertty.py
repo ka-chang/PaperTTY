@@ -1,13 +1,6 @@
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-# Written by Greg Meyer (2019) based off code by Jouko Strömmer (2018)
-# Copyright and related rights waived via CC0
-# https://creativecommons.org/publicdomain/zero/1.0/legalcode
-
-import cProfile, io, pstats, signal
-
+import cProfile, io, pstats
+import signal
 from time import sleep, perf_counter
 from IT8951 import EPD, AutoEPDDisplay, constants
 
@@ -27,6 +20,8 @@ class Runner:
         if self.profile:
             self.pr = cProfile.Profile()
 
+        # keep track of two displays: one for the terminal, the other for when
+        # processes want to take it over
         epd = EPD(vcom=-2.06)
         self.term_display = AutoEPDDisplay(epd)
         self.remote_display = PipeDisplay(epd)
@@ -41,6 +36,9 @@ class Runner:
         # handle both of these the same way
         signal.signal(signal.SIGTERM, self.sigterm_handler)
         signal.signal(signal.SIGINT, self.sigterm_handler)
+
+    def sigterm_handler(self, sig=None, frame=None):
+        self.running = False
 
     def on_exit(self):
         '''
@@ -64,9 +62,9 @@ class Runner:
         by term, in order to get quick updates on the screen
         '''
         if need_gray:
-            self.term_display.write_partial(constants.DisplayModes.GL16)
+            self.term_display.draw_partial(constants.DisplayModes.GL16)
         else:
-            self.term_display.write_partial(constants.DisplayModes.DU)
+            self.term_display.draw_partial(constants.DisplayModes.DU)
 
     def update(self):
         '''
@@ -76,7 +74,7 @@ class Runner:
         # if another process has decided to take the display, do that
         if self.remote_display.active:
             self.remote_display.run()
-            self.term_display.write_full(constants.DisplayModes.GC16)  # get our terminal back
+            self.term_display.draw_full(constants.DisplayModes.GC16)  # get our terminal back
 
         # currently just want to profile the updates done here
         if self.profile:
@@ -93,7 +91,7 @@ class Runner:
             self.need_update = True
         elif self.need_update and perf_counter() - self.last_change > 10:
             # if it's been long time, clear out the ghosting
-            self.term_display.write_full(constants.DisplayModes.GC16)
+            self.term_display.draw_full(constants.DisplayModes.GC16)
             self.need_update = False
 
     def run(self):
@@ -118,11 +116,8 @@ class Runner:
 
         self.on_exit()
 
-    def sigterm_handler(self, sig=None, frame=None):
-        self.running = False
-
     def display_penguin(self):
-        img_path = 'pics/sleeping_penguin.png'
+        img_path = '../pics/sleeping_penguin.png'
 
         # clear image to white
         img_bounds = (0, 0, self.term_display.width, self.term_display.height)
@@ -141,11 +136,4 @@ class Runner:
         )
         self.term_display.frame_buf.paste(img, paste_coords)
 
-        self.term_display.write_full(constants.DisplayModes.GC16)
-
-def main():
-    r = Runner()
-    r.run()
-
-if __name__ == '__main__':
-    main()
+        self.term_display.draw_full(constants.DisplayModes.GC16)

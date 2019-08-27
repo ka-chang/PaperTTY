@@ -9,8 +9,8 @@ TimeoutStopSec=8
 Restart=on-failure
 
 ### Change the paths below to match yours
-WorkingDirectory=/home/pi/Code/PaperTTY
-ExecStart=/home/pi/Code/PaperTTY/start.sh
+WorkingDirectory=/home/pi/Code/PaperTTY/bin
+ExecStart=/home/pi/Code/PaperTTY/bin/start.sh
 ###
 
 [Install]

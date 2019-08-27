@@ -4,7 +4,7 @@ import numpy as np
 from time import sleep
 
 from sys import path
-path += ['..']
+path += ['../papertty']
 from pipe_driver import AutoPipeDisplay
 from IT8951 import constants
 
@@ -20,7 +20,7 @@ def display_gradient(display):
         display.frame_buf.paste(i*0x10, box=(i*display.width//16, 0, (i+1)*display.width//16, display.height))
 
     # update display
-    display.write_full(constants.DisplayModes.GC16)
+    display.draw_full(constants.DisplayModes.GC16)
 
 def display_image_8bpp(display):
     img_path = '../pics/sleeping_penguin.png'
@@ -38,7 +38,7 @@ def display_image_8bpp(display):
     paste_coords = [dims[i] - img.size[i] for i in (0,1)]  # align image with bottom of display
     display.frame_buf.paste(img, paste_coords)
 
-    display.write_full(constants.DisplayModes.GC16)
+    display.draw_full(constants.DisplayModes.GC16)
 
 def place_text(img, text, x_offset=0, y_offset=0):
     '''
@@ -66,12 +66,12 @@ def partial_update(display):
 
     print('  writing full...')
     place_text(display.frame_buf, 'partial', x_offset=-200)
-    display.write_full(constants.DisplayModes.GC16)
+    display.draw_full(constants.DisplayModes.GC16)
 
     # TODO: should use 1bpp for partial text update
     print('  writing partial...')
     place_text(display.frame_buf, 'update', x_offset=+200)
-    display.write_partial(constants.DisplayModes.DU)
+    display.draw_partial(constants.DisplayModes.DU)
 
 def main():
     print('Initializing...')
