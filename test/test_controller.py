@@ -1,12 +1,28 @@
 
 from PIL import Image, ImageDraw, ImageFont
-import numpy as np
 from time import sleep
 
 from sys import path
 path += ['../papertty']
-from pipe_driver import AutoPipeDisplay
+from controller import AutoWorkerDisplay
 from IT8951 import constants
+
+def main():
+    print('Initializing...')
+    display = AutoWorkerDisplay()
+
+    tests = [
+        clear_display,
+        display_gradient,
+        partial_update,
+        display_image_8bpp,
+    ]
+
+    for t in tests:
+        t(display)
+        sleep(1)
+
+    print('Done!')
 
 def clear_display(display):
     print('Clearing display...')
@@ -72,23 +88,6 @@ def partial_update(display):
     print('  writing partial...')
     place_text(display.frame_buf, 'update', x_offset=+200)
     display.draw_partial(constants.DisplayModes.DU)
-
-def main():
-    print('Initializing...')
-    display = AutoPipeDisplay()
-
-    tests = [
-        clear_display,
-        display_gradient,
-        partial_update,
-        display_image_8bpp,
-    ]
-
-    for t in tests:
-        t(display)
-        sleep(1)
-
-    print('Done!')
 
 if __name__ == '__main__':
     main()

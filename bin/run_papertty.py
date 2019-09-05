@@ -1,3 +1,4 @@
+#!/usr/bin/env papertty
 
 from sys import path
 path += ['../papertty/']
