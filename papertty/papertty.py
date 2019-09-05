@@ -2,17 +2,20 @@
 import cProfile, io, pstats
 import signal
 from time import sleep, perf_counter
-from IT8951 import EPD, AutoEPDDisplay, constants
+
+from IT8951 import constants
+from IT8951.interface import EPD
+from IT8951.display import AutoEPDDisplay
 
 from render import Terminal
 from vcsa import auto_resize_tty, read_vcsa
-from pipe_driver import PipeDisplay
+from controller import Controller
 
 from PIL import Image
 
 class Runner:
 
-    def __init__(self, profile=False, ttyn=1, frame_rate=10):
+    def __init__(self, profile=False, ttyn=1, frame_rate=10, flip=False):
 
         self.ttyn = ttyn
         self.inv_frame_rate = 1/frame_rate
@@ -23,8 +26,8 @@ class Runner:
         # keep track of two displays: one for the terminal, the other for when
         # processes want to take it over
         epd = EPD(vcom=-2.06)
-        self.term_display = AutoEPDDisplay(epd)
-        self.remote_display = PipeDisplay(epd)
+        self.term_display = AutoEPDDisplay(epd, flip=flip)
+        self.controller_display = Controller(epd, flip=flip)
 
         print('Initializing...')
         self.term_display.clear()
@@ -72,8 +75,8 @@ class Runner:
         '''
 
         # if another process has decided to take the display, do that
-        if self.remote_display.active:
-            self.remote_display.run()
+        if self.controller_display.check_active():
+            self.controller_display.run()
             self.term_display.draw_full(constants.DisplayModes.GC16)  # get our terminal back
 
         # currently just want to profile the updates done here
@@ -117,6 +120,11 @@ class Runner:
         self.on_exit()
 
     def display_penguin(self):
+        '''
+        Display a cute sleeping Tux to remain on the screen when we shut
+        down the terminal.
+        '''
+
         img_path = '../pics/sleeping_penguin.png'
 
         # clear image to white

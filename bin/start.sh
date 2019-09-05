@@ -9,4 +9,5 @@
 ##
 
 VENV="/home/pi/Code/venvs/six-inch/bin/python3"
-${VENV} run.py
+${VENV} run_papertty.py --flip
+# my display is mounted upside-down so I need to flip the output
