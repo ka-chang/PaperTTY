@@ -2,9 +2,7 @@
 from PIL import Image, ImageDraw, ImageFont
 from time import sleep
 
-from sys import path
-path += ['../papertty']
-from controller import AutoWorkerDisplay
+from papertty.controller import AutoWorkerDisplay
 from IT8951 import constants
 
 def main():
@@ -39,7 +37,7 @@ def display_gradient(display):
     display.draw_full(constants.DisplayModes.GC16)
 
 def display_image_8bpp(display):
-    img_path = '../pics/sleeping_penguin.png'
+    img_path = '../papertty/images/sleeping_penguin.png'
     print('Displaying "{}"...'.format(img_path))
 
     # clearing image to white

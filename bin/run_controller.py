@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 
 from time import sleep
-
-from sys import path
-path += ['../papertty/']
-
-from controller import Controller
+from papertty.controller import Controller
 
 def main():
     print('Initializing...')

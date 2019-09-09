@@ -1,11 +1,7 @@
-#!/usr/bin/env papertty
+#!/usr/bin/env python3
 
 import argparse
-
-from sys import path
-path += ['../papertty/']
-
-from papertty import Runner
+from papertty.papertty import Runner
 
 def parse_args():
     p = argparse.ArgumentParser(description='Run a PaperTTY terminal.')

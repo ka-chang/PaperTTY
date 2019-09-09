@@ -1,7 +1,7 @@
 
 import numpy as np
 from PIL import Image, ImageFont, ImageDraw
-from vcsa import TTY_DTYPE
+from .vcsa import TTY_DTYPE
 
 # mapping 3-bit colors (from VGA mode text) to
 # e-paper display colors

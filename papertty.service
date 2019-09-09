@@ -9,8 +9,8 @@ TimeoutStopSec=8
 Restart=on-failure
 
 ### Change the paths below to match yours
-WorkingDirectory=/home/pi/Code/PaperTTY/bin
-ExecStart=/home/pi/Code/PaperTTY/bin/start.sh
+# I need the --flip flag because my display is mounted upside-down
+ExecStart=/usr/local/bin/papertty --flip
 ###
 
 [Install]

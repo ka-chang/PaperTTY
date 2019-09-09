@@ -18,19 +18,23 @@ The main changes are:
  
 ## Setting up
 
-First install the IT8951 driver [here](https://github.com/GregDMeyer/IT8951).
+__Note__: The following assumes everything will be installed with sudo, without using
+a virtual environment. This makes keeping track of paths etc. a bit easier. (Use a
+virtual environment if you want; you just need to make sure sudo can see the `papertty`
+script after it's installed).
+
+First install the IT8951 driver [here](https://github.com/GregDMeyer/IT8951) (with sudo).
 
 Next clone the repository and install the required packages: 
-`pip3 install -r requirements.txt`
+`sudo pip3 install -r requirements.txt`
 
-Now you can test out PaperTTY. 
-Enter the `bin` directory and edit `start.sh`
-to contain the appropriate paths.
-Finally, run `sudo start.sh` and watch the e-paper terminal (hopefully) come to life!
+And install PaperTTY: (this should be run in the PaperTTY directory)
+`sudo pip3 install ./`
 
-If you want to always run PaperTTY at startup, do the following:
- 1. Modify the file `papertty.service` to contain the appropriate paths
- 2. Run the following commands:
+Now you can test out PaperTTY. Simply run `sudo papertty`
+and watch the e-paper terminal (hopefully) come to life!
+
+If you want to always run PaperTTY at startup, run the following commands:
  
 ```
 sudo cp papertty.service /etc/systemd/system

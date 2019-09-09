@@ -2,14 +2,15 @@
 import cProfile, io, pstats
 import signal
 from time import sleep, perf_counter
+from os.path import dirname, join
 
 from IT8951 import constants
 from IT8951.interface import EPD
 from IT8951.display import AutoEPDDisplay
 
-from render import Terminal
-from vcsa import auto_resize_tty, read_vcsa
-from controller import Controller
+from .render import Terminal
+from .vcsa import auto_resize_tty, read_vcsa
+from .controller import Controller
 
 from PIL import Image
 
@@ -125,7 +126,7 @@ class Runner:
         down the terminal.
         '''
 
-        img_path = '../pics/sleeping_penguin.png'
+        img_path = join(dirname(__file__), 'images/sleeping_penguin.png')
 
         # clear image to white
         img_bounds = (0, 0, self.term_display.width, self.term_display.height)
