@@ -101,7 +101,7 @@ class Terminal:
         diffs = np.nonzero(data != self.data)
 
         # set to true when we make a change that requires a grayscale update (not b&w)
-        gray_changes = False
+        gray_changes = True
 
         # remove old cursor
         if self.cursor_pos is not None:
@@ -110,7 +110,7 @@ class Terminal:
             # (e.g. old cursor was on a different line than all text changes)
             if diffs[0].size and self.cursor_pos[1] != diffs[0][0]:
                 callback(gray_changes)
-                gray_changes = False
+                gray_changes = True
 
         # iterate through the places where the data arrays differ, changing the character there
         prev_y = diffs[0][0] if diffs[0].size else None
@@ -121,7 +121,7 @@ class Terminal:
             # areas changed.
             if y > prev_y + 5:
                 callback(gray_changes)
-                gray_changes = False
+                gray_changes = True
 
             prev_y = y
 
@@ -155,7 +155,7 @@ class Terminal:
         # run the callback
         if prev_y != cursor_pos[1]:
             callback(gray_changes)
-            gray_changes = False
+            gray_changes = True
 
         # place cursor
         gray_changes = self._draw_cursor(cursor_pos, data, draw) or gray_changes
