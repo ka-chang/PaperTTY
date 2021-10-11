@@ -26,7 +26,7 @@ class Runner:
 
         # keep track of two displays: one for the terminal, the other for when
         # processes want to take it over
-        epd = EPD(vcom=-2.06)
+        epd = EPD(vcom=-1.78)
         self.term_display = AutoEPDDisplay(epd, flip=flip)
         self.controller_display = Controller(epd, flip=flip)
 
